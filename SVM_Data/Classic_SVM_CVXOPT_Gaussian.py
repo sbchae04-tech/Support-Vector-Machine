@@ -348,3 +348,24 @@ def Hinge_Loss(X_train, X_test, y_train, y_test, alpha, K_train_train, scores_tr
     loss_test_mean  = np.mean(loss_test)
 
     return loss_train_mean, loss_test_mean
+def Lagrangian(alpha, K_train_train, energy, y_train):
+
+    lagrangian_w = ( 0.5 * ((alpha * y_train) @ K_train_train @ (alpha * y_train)) - sum(alpha) )
+
+    lagrangian_b = -1 * sum(alpha * y_train * b_value(alpha, y_train, K_train_train))
+
+    lagrangian_xi = energy - lagrangian_w - lagrangian_b
+
+    return lagrangian_w, lagrangian_b, lagrangian_xi
+
+def Primal(alpha, K_train_train, y_train, C):
+    J_w =  0.5 * ((alpha * y_train) @ K_train_train @ (alpha * y_train))
+    scores = (alpha * y_train) @ K_train_train + b_value(alpha, C, y_train, K_train_train)
+
+    # slack
+    xi = np.maximum(0, 1 - y_train * scores)
+
+    # sum xi
+    J_xi = np.sum(xi)
+
+    return J_w, J_xi

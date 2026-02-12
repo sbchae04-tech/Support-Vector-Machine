@@ -377,3 +377,15 @@ def Hinge_Loss(X_train, X_test, y_train, y_test, alpha, K_train_train, scores_tr
     loss_test_mean  = np.mean(loss_test)
 
     return loss_train_mean, loss_test_mean
+
+def Primal(alpha, K_train_train, y_train, C):
+    J_w =  0.5 * ((alpha * y_train) @ K_train_train @ (alpha * y_train))
+    scores = (alpha * y_train) @ K_train_train + b_value(alpha, y_train, K_train_train, C)
+
+    # slack
+    xi = np.maximum(0, 1 - y_train * scores)
+
+    # sum xi
+    J_xi = np.sum(xi)
+
+    return J_w, J_xi
