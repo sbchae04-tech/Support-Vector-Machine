@@ -112,7 +112,7 @@ def Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b, C):
     X_train = np.asarray(X_train, dtype=np.float64)
     y_train = np.asarray(y_train, dtype=np.float64).ravel()
     alpha   = np.asarray(alpha,   dtype=np.float64).ravel()
-    HP = np.where((alpha > 0) & (alpha < C))[0]
+    HP = np.where((alpha >= 0) & (alpha <= C))[0]
     gamma   = float(gamma)
     b       = float(b)
 
@@ -136,7 +136,7 @@ def b_value(alpha, y, K, C):
     y = np.asarray(y, dtype=float).ravel()
     K = np.asarray(K, dtype=float)
 
-    HP = np.where((alpha > 0) & (alpha < C))[0]
+    HP = np.where((alpha >= 0) & (alpha <= C))[0]
 
     g = (alpha * y) @ K
 
@@ -177,30 +177,30 @@ def Train_Graph(X_train, y_train, alpha):
 #######################################################################################################################
 
 # 3-D graph############################################################################################################
-    fig = go.Figure()
+    # fig = go.Figure()
 
-    fig.add_trace(
-        go.Surface(
-            x=xx,
-            y=yy,
-            z=Z,
-            colorscale='RdBu',
-            opacity=0.85,
-            colorbar=dict(title='f(x, y)')
-        )
-    )
-
-
-    fig.update_layout(
-        title='RBF (Gaussian) qSVM Decision Surface',
-        scene=dict(
-            xaxis_title='Sepal Length',
-            yaxis_title='Sepal Width',
-            zaxis_title='Decision value f(x,y)'
-    ))
+    # fig.add_trace(
+    #     go.Surface(
+    #         x=xx,
+    #         y=yy,
+    #         z=Z,
+    #         colorscale='RdBu',
+    #         opacity=0.85,
+    #         colorbar=dict(title='f(x, y)')
+    #     )
+    # )
 
 
-    fig.show()
+    # fig.update_layout(
+    #     title='RBF (Gaussian) qSVM Decision Surface',
+    #     scene=dict(
+    #         xaxis_title='Sepal Length',
+    #         yaxis_title='Sepal Width',
+    #         zaxis_title='Decision value f(x,y)'
+    # ))
+
+
+    # fig.show()
 #######################################################################################################################
 
 #X_test Data

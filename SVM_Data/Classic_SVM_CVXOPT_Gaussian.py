@@ -80,7 +80,7 @@ def Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b):
     # 타입/shape 안정화 (매우 중요)
     X_train = np.asarray(X_train, dtype=np.float64)
     y_train = np.asarray(y_train, dtype=np.float64).ravel()
-    HP = np.where((alpha > 0) & (alpha < C))[0]
+    HP = np.where((alpha >= 0) & (alpha <= C))[0]
     alpha   = np.asarray(alpha,   dtype=np.float64).ravel()
     gamma   = float(gamma)
     b       = float(b)
@@ -105,7 +105,7 @@ def b_value(alpha, C, y, K):
     y = np.asarray(y, dtype=float).ravel()
     K = np.asarray(K, dtype=float)
 
-    HP = np.where((alpha > 0) & (alpha < C))[0]
+    HP = np.where((alpha >= 0) & (alpha <= C))[0]
 
     g = (alpha * y) @ K
 
@@ -113,7 +113,7 @@ def b_value(alpha, C, y, K):
 
     return b
 
-def Train_Graph(X_train, y_train, alpha, K, gamma): 
+def Train_Graph(X_train, y_train, alpha, K, gamma, C): 
 
 # 2-D graph############################################################################################################
     h = 0.01
@@ -124,7 +124,7 @@ def Train_Graph(X_train, y_train, alpha, K, gamma):
                         np.arange(y_min, y_max, h))
 
     # b를 모르면 일단 0으로 두고 경계 모양을 먼저 확인 가능
-    b = b_value(alpha, X_train, y_train, K)
+    b = b_value(alpha, C, y_train, K)
     
     Z = Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b=b)
 
@@ -146,30 +146,30 @@ def Train_Graph(X_train, y_train, alpha, K, gamma):
 #######################################################################################################################
 
 # 3-D graph############################################################################################################
-    fig = go.Figure()
+    # fig = go.Figure()
 
-    fig.add_trace(
-        go.Surface(
-            x=xx,
-            y=yy,
-            z=Z,
-            colorscale='RdBu',
-            opacity=0.85,
-            colorbar=dict(title='f(x, y)')
-        )
-    )
-
-
-    fig.update_layout(
-        title='RBF (Gaussian) qSVM Decision Surface',
-        scene=dict(
-            xaxis_title='Sepal Length',
-            yaxis_title='Sepal Width',
-            zaxis_title='Decision value f(x,y)'
-    ))
+    # fig.add_trace(
+    #     go.Surface(
+    #         x=xx,
+    #         y=yy,
+    #         z=Z,
+    #         colorscale='RdBu',
+    #         opacity=0.85,
+    #         colorbar=dict(title='f(x, y)')
+    #     )
+    # )
 
 
-    fig.show()
+    # fig.update_layout(
+    #     title='RBF (Gaussian) qSVM Decision Surface',
+    #     scene=dict(
+    #         xaxis_title='Sepal Length',
+    #         yaxis_title='Sepal Width',
+    #         zaxis_title='Decision value f(x,y)'
+    # ))
+
+
+    # fig.show()
 #######################################################################################################################
 
 #X_test Data
