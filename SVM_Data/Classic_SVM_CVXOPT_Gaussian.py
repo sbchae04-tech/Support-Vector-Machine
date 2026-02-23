@@ -75,8 +75,8 @@ def Gaussian_Parameter(i, gamma, z, X_train):
     diff = X_train[i, :] - z              # (2,)
     return np.exp(-gamma * (diff @ diff))
 
-@njit
-def Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b):
+
+def Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b, C):
     # 타입/shape 안정화 (매우 중요)
     X_train = np.asarray(X_train, dtype=np.float64)
     y_train = np.asarray(y_train, dtype=np.float64).ravel()
@@ -113,7 +113,7 @@ def b_value(alpha, C, y, K):
 
     return b
 
-def Train_Graph(X_train, y_train, alpha, K, gamma, C): 
+def Train_Graph(ax, X_train, y_train, alpha, K, gamma, C): 
 
 # 2-D graph############################################################################################################
     h = 0.01
@@ -126,23 +126,22 @@ def Train_Graph(X_train, y_train, alpha, K, gamma, C):
     # b를 모르면 일단 0으로 두고 경계 모양을 먼저 확인 가능
     b = b_value(alpha, C, y_train, K)
     
-    Z = Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b=b)
+    Z = Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b, C)
 
-    plt.contourf(xx, yy, Z,
+    ax.contourf(xx, yy, Z,
                 levels=[Z.min(), 0, Z.max()],
                 colors=['#87CEEB', '#8B4513'],
                 alpha=0.5)
 
-    plt.contour(xx, yy, Z, levels=[0], colors='k', linewidths=2)  # 결정경계 강조
+    ax.contour(xx, yy, Z, levels=[0], colors='k', linewidths=2)  # 결정경계 강조
 
-    plt.scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap=plt.cm.Paired)
+    ax.scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap=plt.cm.Paired)
 
-    plt.title('Gaussian (RBF) SVM')
-    plt.xlabel('Sepal Length')
-    plt.ylabel('Sepal Width')
-    plt.xlim(xx.min(), xx.max())
-    plt.ylim(yy.min(), yy.max())
-    plt.show()
+    ax.set_title(f'Classical Gaussian(gamma = {gamma}) Train SVM')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_xlim(xx.min(), xx.max())
+    ax.set_ylim(yy.min(), yy.max())
 #######################################################################################################################
 
 # 3-D graph############################################################################################################
@@ -213,18 +212,20 @@ def Test_Graph(X_train, X_test, y_train, y_test, alpha, K, gamma, C):
     scores_grid = (alpha * y_train) @ K_train_grid + b_value(alpha, C, y_train, K)
     Z = scores_grid.reshape(xx.shape)
 
+    plt.contourf(xx, yy, Z, levels=[Z.min(), 0, Z.max()], colors=['#87CEEB', '#8B4513'], alpha=0.5)
+    plt.contour(xx, yy, Z, levels=[0], colors='k', linewidths=2)
+    plt.scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=plt.cm.Paired)
+
+    plt.title(f'Classical Gaussian(gamma = {gamma}) Test SVM')
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.xlim(xx.min(), xx.max())
+    plt.ylim(yy.min(), yy.max())
+    plt.show()
+
     return Z
 
-    # plt.contourf(xx, yy, Z, levels=[Z.min(), 0, Z.max()], colors=['#87CEEB', '#8B4513'], alpha=0.5)
-    # plt.contour(xx, yy, Z, levels=[0], colors='k', linewidths=2)
-    # plt.scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=plt.cm.Paired)
 
-    # plt.title('Gaussian SVM')
-    # plt.xlabel('Sepal Length')
-    # plt.ylabel('Sepal Width')
-    # plt.xlim(xx.min(), xx.max())
-    # plt.ylim(yy.min(), yy.max())
-    # plt.show()
 #######################################################################################################################
 
 # 3-D graph############################################################################################################

@@ -144,7 +144,7 @@ def b_value(alpha, y, K, C):
 
     return b
 
-def Train_Graph(X_train, y_train, alpha): 
+def Train_Graph(ax, X_train, y_train, alpha, K, gamma, C): 
 
 # 2-D graph############################################################################################################
     h = 0.01
@@ -155,25 +155,24 @@ def Train_Graph(X_train, y_train, alpha):
                         np.arange(y_min, y_max, h))
 
     # b를 모르면 일단 0으로 두고 경계 모양을 먼저 확인 가능
-    b = b_value(alpha, y_train, Q_metric()[0], C)
+    b = b_value(alpha, y_train, K, C)
     
-    Z = Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, b, C)
+    Z = Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b, C)
 
-    plt.contourf(xx, yy, Z,
+    ax.contourf(xx, yy, Z,
                 levels=[Z.min(), 0, Z.max()],
                 colors=['#87CEEB', '#8B4513'],
                 alpha=0.5)
 
-    plt.contour(xx, yy, Z, levels=[0], colors='k', linewidths=2)  # 결정경계 강조
+    ax.contour(xx, yy, Z, levels=[0], colors='k', linewidths=2)  # 결정경계 강조
 
-    plt.scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap=plt.cm.Paired)
+    ax.scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap=plt.cm.Paired)
 
-    plt.title('Gaussian (RBF) SVM')
-    plt.xlabel('Sepal Length')
-    plt.ylabel('Sepal Width')
-    plt.xlim(xx.min(), xx.max())
-    plt.ylim(yy.min(), yy.max())
-    plt.show()
+    ax.set_title(f'Quantum Gaussian (gamma = {gamma}) SVM')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_xlim(xx.min(), xx.max())
+    ax.set_ylim(yy.min(), yy.max())
 #######################################################################################################################
 
 # 3-D graph############################################################################################################
