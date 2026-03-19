@@ -29,7 +29,6 @@ from sklearn.metrics import (
 
 #Solver 구하기
 
-@njit
 def Gaussian_kernel(n, m, gamma, X_1, X_2):
     K = np.exp(-1 * gamma * ((X_1[n, :] - X_2[m, :]) @ (X_1[n, :] - X_2[m, :])))
 
@@ -100,18 +99,27 @@ def Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b, C):
 
     return Z
 
-def b_value(alpha, C, y, K):
+def b_value(alpha, C, y, K, eps=1e-12):
     alpha = np.asarray(alpha, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
     K = np.asarray(K, dtype=float)
 
-    HP = np.where((alpha >= 0) & (alpha <= C))[0]
-
     g = (alpha * y) @ K
+    w = alpha * (C - alpha)
+    denom = np.sum(w)
 
-    b = np.mean(y[HP] - g[HP])
+    if denom > eps:
+        return float(np.sum(w * (y - g)) / denom)
 
-    return b
+    sv = np.where((alpha > eps) & (alpha < C - eps))[0]
+    if sv.size > 0:
+        return float(np.mean(y[sv] - g[sv]))
+
+    sv = np.where(alpha > eps)[0]
+    if sv.size > 0:
+        return float(np.mean(y[sv] - g[sv]))
+
+    return 0.0
 
 def Train_Graph(ax, X_train, y_train, alpha, K, gamma, C): 
 
@@ -297,10 +305,10 @@ def evaluate_test(y_true, decision_scores, threshold=0.0):
 
     return accuracy, auroc, auprc
 
-def Evaluate(y_test, alpha, K_train_train):
+def Evaluate(X_train, X_test, y_train, y_test, alpha, K_train_train, gamma, C):
     acc, auroc, auprc = evaluate_test(
         y_test,
-        Test_evlauation(alpha, K_train_train)
+        Test_evlauation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)
     )
 
     print("#" * 25)
@@ -313,7 +321,7 @@ def Evaluate(y_test, alpha, K_train_train):
     if set(np.unique(y_true)) == {-1, 1}:
         y_true = (y_true == 1).astype(int)
 
-    scores = np.asarray(Test_evlauation(alpha, K_train_train)).ravel()
+    scores = np.asarray(Test_evlauation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)).ravel()
 
     # ROC 계산
     fpr, tpr, thresholds = roc_curve(y_true, scores)
@@ -349,15 +357,16 @@ def Hinge_Loss(X_train, X_test, y_train, y_test, alpha, K_train_train, scores_tr
     loss_test_mean  = np.mean(loss_test)
 
     return loss_train_mean, loss_test_mean
-def Lagrangian(alpha, K_train_train, energy, y_train):
 
-    lagrangian_w = ( 0.5 * ((alpha * y_train) @ K_train_train @ (alpha * y_train)) - sum(alpha) )
+# def Lagrangian(alpha, C, K_train_train, energy, y_train):
 
-    lagrangian_b = -1 * sum(alpha * y_train * b_value(alpha, y_train, K_train_train))
+#     lagrangian_w = ( 0.5 * ((alpha * y_train) @ K_train_train @ (alpha * y_train)) - sum(alpha) )
 
-    lagrangian_xi = energy - lagrangian_w - lagrangian_b
+#     lagrangian_b = -1 * sum(alpha * y_train * b_value(alpha, C, y_train, K_train_train))
 
-    return lagrangian_w, lagrangian_b, lagrangian_xi
+#     lagrangian_xi = energy - lagrangian_w - lagrangian_b
+
+#     return lagrangian_w, lagrangian_b, lagrangian_xi
 
 def Primal(alpha, K_train_train, y_train, C):
     J_w =  0.5 * ((alpha * y_train) @ K_train_train @ (alpha * y_train))

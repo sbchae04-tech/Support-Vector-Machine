@@ -29,39 +29,77 @@ def Gaussian_kernel(n, m, gamma, X_1, X_2):
     return(P)
 
 def Q_metric(N_train, X_train, y_train, B, K, xi, gamma):
-    Q = np.zeros((K*N_train,K*N_train))
+    """
+    Returns
+    -------
+    K_train_train : (N, N) ndarray
+        Gaussian kernel matrix
+    Q_upper : (K*N, K*N) ndarray
+        Upper-triangular QUBO matrix ready for neal
+    """
+    N_var = K * N_train
 
-    K_train_train = np.zeros((N_train, N_train))
+    # 1) kernel matrix
+    K_train_train = np.zeros((N_train, N_train), dtype=float)
     for n in range(N_train):
         for m in range(N_train):
-            K_train_train[n, m] = Gaussian_kernel(n, m, gamma,  X_train, X_train)
+            K_train_train[n, m] = Gaussian_kernel(n, m, gamma, X_train, X_train)
+
+    # 2) build symmetric Q_tilde from paper Eq. (13)
+    Q_tilde = np.zeros((N_var, N_var), dtype=float)
 
     for n in range(N_train):
         for m in range(N_train):
+            ymn = y_train[n] * y_train[m]
+            kmn = K_train_train[n, m]
+
             for k in range(K):
-                for j in range(K):  
-                    Q[K*n + k, K*m + j] = 0.5 * (B**(k+j)) * y_train[n] * y_train[m] * (Gaussian_kernel(n, m, gamma, X_train, X_train) + xi)
+                Bk = B ** k
+                for j in range(K):
+                    idx1 = K * n + k
+                    idx2 = K * m + j
+
+                    val = 0.5 * (B ** (k + j)) * ymn * (kmn + xi)
 
                     if n == m and k == j:
-                        Q[K*n + k, K*m + j] += -B**k
+                        val -= Bk
 
-    return K_train_train, Q
+                    Q_tilde[idx1, idx2] = val
+
+    # 3) convert symmetric Q_tilde -> upper-triangular QUBO matrix Q
+    Q_upper = np.zeros_like(Q_tilde)
+
+    for i in range(N_var):
+        Q_upper[i, i] = Q_tilde[i, i]
+        for j in range(i + 1, N_var):
+            Q_upper[i, j] = Q_tilde[i, j] + Q_tilde[j, i]
+
+    return K_train_train, Q_upper
 
 #Solver 구하기
 
-def neal_Solver(Q):
-
+def neal_Solver(Q_upper):
     sampler = neal.SimulatedAnnealingSampler()
 
+    Q_dict = {}
+    n = Q_upper.shape[0]
+
+    for i in range(n):
+        if Q_upper[i, i] != 0.0:
+            Q_dict[(i, i)] = float(Q_upper[i, i])
+
+        for j in range(i + 1, n):
+            if Q_upper[i, j] != 0.0:
+                Q_dict[(i, j)] = float(Q_upper[i, j])
+
     sampleset = sampler.sample_qubo(
-        Q,
+        Q_dict,
         num_reads=10000,
         beta_range=(0.1, 10),
         num_sweeps=1000
     )
 
     top_solutions = sampleset.lowest(20)
-
     return top_solutions
 
 #학습
@@ -100,7 +138,7 @@ def alpha_value(N_train, x_opt, B, K):
 
     return alpha
 
-@njit
+
 def Gaussian_Parameter(i, gamma, z, X_train):
     # z: (2,), X_train: (N,2)
     diff = X_train[i, :] - z
@@ -112,7 +150,7 @@ def Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b, C):
     X_train = np.asarray(X_train, dtype=np.float64)
     y_train = np.asarray(y_train, dtype=np.float64).ravel()
     alpha   = np.asarray(alpha,   dtype=np.float64).ravel()
-    HP = np.where((alpha >= 0) & (alpha <= C))[0]
+    HP = np.where((alpha > 0) & (alpha < C))[0]
     gamma   = float(gamma)
     b       = float(b)
 
@@ -131,20 +169,29 @@ def Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b, C):
 
     return Z
 
-def b_value(alpha, y, K, C):
-    alpha = np.asarray(alpha, dtype=float).ravel()
-    y = np.asarray(y, dtype=float).ravel()
-    K = np.asarray(K, dtype=float)
+def b_value(alpha, C, y_train, K_train_train, n_grid=2001, margin=2.0):
+    scores0 = (np.asarray(alpha).ravel() * np.asarray(y_train).ravel()) @ np.asarray(K_train_train)
+    b0 = b_value_eq7(alpha, C, y_train, K_train_train)
 
-    HP = np.where((alpha >= 0) & (alpha <= C))[0]
+    smin = np.min(scores0)
+    smax = np.max(scores0)
+    span = max(smax - smin, 1.0)
 
-    g = (alpha * y) @ K
+    y_bin = (np.asarray(y_train).ravel() == 1).astype(int)
 
-    b = np.mean(y[HP] - g[HP])
+    best_b = b0
+    best_acc = -1.0
 
-    return b
+    for b in np.linspace(b0 - margin * span, b0 + margin * span, n_grid):
+        pred = ((scores0 + b) >= 0).astype(int)
+        acc = np.mean(pred == y_bin)
+        if acc > best_acc:
+            best_acc = acc
+            best_b = b
 
-def Train_Graph(ax, X_train, y_train, alpha, K, gamma, C): 
+    return float(best_b)
+
+def Train_Graph(ax, X_train, y_train, alpha, K, gamma, C, K_train_train): 
 
 # 2-D graph############################################################################################################
     h = 0.01
@@ -155,7 +202,7 @@ def Train_Graph(ax, X_train, y_train, alpha, K, gamma, C):
                         np.arange(y_min, y_max, h))
 
     # b를 모르면 일단 0으로 두고 경계 모양을 먼저 확인 가능
-    b = b_value(alpha, y_train, K, C)
+    b = b_value(alpha, C, y_train, K_train_train)
     
     Z = Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b, C)
 
@@ -215,7 +262,7 @@ def Test_evlauation(X_train, X_test, y_train, alpha, K_train_train, gamma, C):
         for m in range(N_test):
             K_train_test[n, m] = Gaussian_kernel(n, m, gamma, X_train, X_test)
 
-    scores_test = (alpha * y_train) @ K_train_test + b_value(alpha, y_train, K_train_train, C)
+    scores_test = (alpha * y_train) @ K_train_test + b_value(alpha, C, y_train, K_train_train)
 
     return scores_test
 
@@ -240,7 +287,7 @@ def Test_Graph(X_train, X_test, y_train, y_test, alpha, K_train_train, gamma, C)
         for j in range(N_grid):
             K_train_grid[i, j] = Gaussian_kernel(i, j, gamma, X_train, grid)
 
-    scores_grid = (alpha * y_train) @ K_train_grid + b_value(alpha, y_train, K_train_train, C)
+    scores_grid = (alpha * y_train) @ K_train_grid + b_value(alpha, C, y_train, K_train_train)
     Z = scores_grid.reshape(xx.shape)
 
     return (Z)
@@ -288,7 +335,7 @@ def Test_Graph(X_train, X_test, y_train, y_test, alpha, K_train_train, gamma, C)
 
 def evaluate_train(y_true, alpha, K_train_train, C, threshold=0.0):
     y_true = np.asarray(y_true)
-    scores_train = (alpha * y_true) @ K_train_train + b_value(alpha, y_true, K_train_train, C)
+    scores_train = (alpha * y_true) @ K_train_train + b_value(alpha, C, y_train, K_train_train)
     scores_train = np.asarray(scores_train)
 
     if set(np.unique(y_true)) == {-1, 1}:
@@ -326,10 +373,10 @@ def evaluate_test(y_true, decision_scores, threshold=0.0):
 
     return accuracy, auroc, auprc
 
-def Evaluate(y_test, alpha, K_train_train):
+def Evaluate(X_train, X_test, y_train, y_test, alpha, K_train_train, gamma, C):
     acc, auroc, auprc = evaluate_test(
         y_test,
-        Test_evlauation(alpha, K_train_train)
+        Test_evlauation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)
     )
 
     print(f"Test Accuracy : {acc:.4f}")
@@ -340,7 +387,7 @@ def Evaluate(y_test, alpha, K_train_train):
     if set(np.unique(y_true)) == {-1, 1}:
         y_true = (y_true == 1).astype(int)
 
-    scores = np.asarray(Test_evlauation(alpha, K_train_train)).ravel()
+    scores = np.asarray(Test_evlauation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)).ravel()
 
     # ROC 계산
     fpr, tpr, thresholds = roc_curve(y_true, scores)
@@ -366,20 +413,20 @@ def Evaluate_Overfitting(acc_train, acc_test, auroc_train, auroc_test, auprc_tra
     
     return gap_acc, gap_auroc, gap_auprc
 
-def Hinge_Loss(X_train, X_test, y_train, y_test, alpha, K_train_train, scores_train, gamma, C):
-    scores_test = Test_evlauation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)
+# def Hinge_Loss(X_train, X_test, y_train, y_test, alpha, K_train_train, scores_train, gamma, C):
+#     scores_test = Test_evlauation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)
 
-    loss_train = np.maximum(0, 1 - (y_train * scores_train))
-    loss_test = np.maximum(0, 1 - (y_test * scores_test))
+#     loss_train = np.maximum(0, 1 - (y_train * scores_train))
+#     loss_test = np.maximum(0, 1 - (y_test * scores_test))
 
-    loss_train_mean = np.mean(loss_train)
-    loss_test_mean  = np.mean(loss_test)
+#     loss_train_mean = np.mean(loss_train)
+#     loss_test_mean  = np.mean(loss_test)
 
-    return loss_train_mean, loss_test_mean
+#     return loss_train_mean, loss_test_mean
 
 def Primal(alpha, K_train_train, y_train, C):
     J_w =  0.5 * ((alpha * y_train) @ K_train_train @ (alpha * y_train))
-    scores = (alpha * y_train) @ K_train_train + b_value(alpha, y_train, K_train_train, C)
+    scores = (alpha * y_train) @ K_train_train + b_value(alpha, C, y_train, K_train_train)
 
     # slack
     xi = np.maximum(0, 1 - y_train * scores)
