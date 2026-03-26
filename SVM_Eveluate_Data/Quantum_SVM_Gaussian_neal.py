@@ -169,15 +169,39 @@ def Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b, C):
 
     return Z
 
+def b_value_eq7(alpha, C, y_train, K_train_train, eps=1e-8):
+    alpha = np.asarray(alpha).ravel()
+    y_train = np.asarray(y_train).ravel()
+    K_train_train = np.asarray(K_train_train)
+
+    sv = (alpha > eps) & (alpha < C - eps)
+
+    if not np.any(sv):
+        return 0.0
+
+    idx = np.where(sv)[0]
+    b_list = []
+
+    for i in idx:
+        b_i = y_train[i] - np.sum(alpha * y_train * K_train_train[:, i])
+        b_list.append(b_i)
+
+    return float(np.mean(b_list))
+
+
 def b_value(alpha, C, y_train, K_train_train, n_grid=2001, margin=2.0):
-    scores0 = (np.asarray(alpha).ravel() * np.asarray(y_train).ravel()) @ np.asarray(K_train_train)
+    alpha = np.asarray(alpha).ravel()
+    y_train = np.asarray(y_train).ravel()
+    K_train_train = np.asarray(K_train_train)
+
+    scores0 = (alpha * y_train) @ K_train_train
     b0 = b_value_eq7(alpha, C, y_train, K_train_train)
 
     smin = np.min(scores0)
     smax = np.max(scores0)
     span = max(smax - smin, 1.0)
 
-    y_bin = (np.asarray(y_train).ravel() == 1).astype(int)
+    y_bin = (y_train == 1).astype(int)
 
     best_b = b0
     best_acc = -1.0
@@ -185,12 +209,12 @@ def b_value(alpha, C, y_train, K_train_train, n_grid=2001, margin=2.0):
     for b in np.linspace(b0 - margin * span, b0 + margin * span, n_grid):
         pred = ((scores0 + b) >= 0).astype(int)
         acc = np.mean(pred == y_bin)
+
         if acc > best_acc:
             best_acc = acc
             best_b = b
 
     return float(best_b)
-
 def Train_Graph(ax, X_train, y_train, alpha, K, gamma, C, K_train_train): 
 
 # 2-D graph############################################################################################################
@@ -335,7 +359,7 @@ def Test_Graph(X_train, X_test, y_train, y_test, alpha, K_train_train, gamma, C)
 
 def evaluate_train(y_true, alpha, K_train_train, C, threshold=0.0):
     y_true = np.asarray(y_true)
-    scores_train = (alpha * y_true) @ K_train_train + b_value(alpha, C, y_train, K_train_train)
+    scores_train = (alpha * y_true) @ K_train_train + b_value(alpha, C, y_true, K_train_train)
     scores_train = np.asarray(scores_train)
 
     if set(np.unique(y_true)) == {-1, 1}:
