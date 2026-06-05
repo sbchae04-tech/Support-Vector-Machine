@@ -1,10 +1,4 @@
-from sklearn import svm
-from sklearn import metrics
-from sklearn import datasets
-from sklearn import model_selection
-from sklearn.datasets import make_circles
 import os
-os. environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 #TF_CPP_MIN_LOG_LEVEL: 텐서 플로우 로그
 #0: 모든 로그 출력(default)
 #1: INFO 로그 필터
@@ -12,10 +6,8 @@ os. environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 #3: INFO, WARNING, ERROR 로그 필터
 
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from cvxopt import matrix, solvers
-import plotly.graph_objects as go
 from numba import njit
 
 from sklearn.metrics import (
@@ -23,7 +15,6 @@ from sklearn.metrics import (
     roc_auc_score,
     average_precision_score,
     roc_curve,
-    precision_recall_curve,
     auc
 )
 
@@ -58,7 +49,7 @@ def Solver_Parameter(N_train, X_train, y_train, gamma, C):
 
     Y = np.diag(y_train)
     P = Y @ K_train_train @ Y
-    q = q = -np.ones((N_train, 1))
+    q = q = -np.ones(N_train, 1)
 
     G = np.vstack([-I, I])
     h = np.hstack([np.zeros(N_train), C*np.ones(N_train)])
@@ -85,19 +76,6 @@ def Gaussian_HyperPlane(xx, yy, X_train, y_train, alpha, gamma, b, C):
     b       = float(b)
 
     N = X_train.shape[0]
-    Z = np.zeros(xx.shape, dtype=np.float64)
-
-    for r in range(xx.shape[0]):
-        for c in range(xx.shape[1]):
-            z = np.array([xx[r, c], yy[r, c]], dtype=np.float64)
-
-            s = 0.0
-            for i in  HP:
-                s += Gaussian_Parameter(i, gamma, z, X_train) * alpha[i] * y_train[i]
-
-            Z[r, c] = s + b   # b는 한 번만 더함
-
-    return Z
 
 def b_value(alpha, C, y, K, eps=1e-12):
     alpha = np.asarray(alpha, dtype=float).ravel()
@@ -152,36 +130,9 @@ def Train_Graph(ax, X_train, y_train, alpha, K, gamma, C):
     ax.set_ylim(yy.min(), yy.max())
 #######################################################################################################################
 
-# 3-D graph############################################################################################################
-    # fig = go.Figure()
-
-    # fig.add_trace(
-    #     go.Surface(
-    #         x=xx,
-    #         y=yy,
-    #         z=Z,
-    #         colorscale='RdBu',
-    #         opacity=0.85,
-    #         colorbar=dict(title='f(x, y)')
-    #     )
-    # )
-
-
-    # fig.update_layout(
-    #     title='RBF (Gaussian) qSVM Decision Surface',
-    #     scene=dict(
-    #         xaxis_title='Sepal Length',
-    #         yaxis_title='Sepal Width',
-    #         zaxis_title='Decision value f(x,y)'
-    # ))
-
-
-    # fig.show()
-#######################################################################################################################
-
 #X_test Data
 
-def Test_evlauation(X_train, X_test, y_train, alpha, K_train_train, gamma, C):
+def Test_evaluation(X_train, X_test, y_train, alpha, K_train_train, gamma, C):
 
     N_train = X_train.shape[0]
     N_test = X_test.shape[0]
@@ -234,33 +185,6 @@ def Test_Graph(X_train, X_test, y_train, y_test, alpha, K, gamma, C):
     return Z
 
 
-#######################################################################################################################
-
-# 3-D graph############################################################################################################
-    # fig = go.Figure()
-
-    # fig.add_trace(
-    #     go.Surface(
-    #         x=xx,
-    #         y=yy,
-    #         z=Z,
-    #         colorscale='RdBu',
-    #         opacity=0.85,
-    #         colorbar=dict(title='f(x, y)')
-    #     )
-    # )
-
-
-    # fig.update_layout(
-    #     title='RBF (Gaussian) qSVM Decision Surface',
-    #     scene=dict(
-    #         xaxis_title='Sepal Length',
-    #         yaxis_title='Sepal Width',
-    #         zaxis_title='Decision value f(x,y)'
-    # ))
-
-
-    # fig.show()
 #######################################################################################################################
 
 #평가
@@ -357,16 +281,6 @@ def Hinge_Loss(X_train, X_test, y_train, y_test, alpha, K_train_train, scores_tr
     loss_test_mean  = np.mean(loss_test)
 
     return loss_train_mean, loss_test_mean
-
-# def Lagrangian(alpha, C, K_train_train, energy, y_train):
-
-#     lagrangian_w = ( 0.5 * ((alpha * y_train) @ K_train_train @ (alpha * y_train)) - sum(alpha) )
-
-#     lagrangian_b = -1 * sum(alpha * y_train * b_value(alpha, C, y_train, K_train_train))
-
-#     lagrangian_xi = energy - lagrangian_w - lagrangian_b
-
-#     return lagrangian_w, lagrangian_b, lagrangian_xi
 
 def Primal(alpha, K_train_train, y_train, C):
     J_w =  0.5 * ((alpha * y_train) @ K_train_train @ (alpha * y_train))
