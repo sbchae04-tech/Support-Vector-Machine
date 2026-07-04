@@ -86,12 +86,12 @@ def neal_Solver(Q_upper):
 
     sampleset = sampler.sample_qubo(
         Q_dict,
-        num_reads=10000,
+        num_reads=3000,
         beta_range=(0.1, 10),
         num_sweeps=1000
     )
 
-    top_solutions = sampleset.lowest(20)
+    top_solutions = sampleset.aggregate().truncate(20, sorted_by="energy")
     return top_solutions
 
 #학습
@@ -204,6 +204,7 @@ def b_value(alpha, C, y_train, K_train_train, n_grid=2001, margin=2.0):
             best_b = b
 
     return float(best_b)
+
 def Train_Graph(ax, X_train, y_train, alpha, K, gamma, C, K_train_train): 
 
 # 2-D graph############################################################################################################
@@ -307,31 +308,31 @@ def Test_Graph(X_train, X_test, y_train, alpha, K_train_train, gamma, C):
 #######################################################################################################################
 
 # 3-D graph############################################################################################################
-    # fig = go.Figure()
+#     fig = go.Figure()
 
-    # fig.add_trace(
-    #     go.Surface(
-    #         x=xx,
-    #         y=yy,
-    #         z=Z,
-    #         colorscale='RdBu',
-    #         opacity=0.85,
-    #         colorbar=dict(title='f(x, y)')
-    #     )
-    # )
-
-
-    # fig.update_layout(
-    #     title='RBF (Gaussian) qSVM Decision Surface',
-    #     scene=dict(
-    #         xaxis_title='Sepal Length',
-    #         yaxis_title='Sepal Width',
-    #         zaxis_title='Decision value f(x,y)'
-    # ))
+#     fig.add_trace(
+#         go.Surface(
+#             x=xx,
+#             y=yy,
+#             z=Z,
+#             colorscale='RdBu',
+#             opacity=0.85,
+#             colorbar=dict(title='f(x, y)')
+#         )
+#     )
 
 
-    # fig.show()
-#######################################################################################################################
+#     fig.update_layout(
+#         title='RBF (Gaussian) qSVM Decision Surface',
+#         scene=dict(
+#             xaxis_title='Sepal Length',
+#             yaxis_title='Sepal Width',
+#             zaxis_title='Decision value f(x,y)'
+#     ))
+
+
+#     fig.show()
+# ######################################################################################################################
 
 #평가
 
@@ -378,7 +379,7 @@ def evaluate_test(y_true, decision_scores, threshold=0.0):
 def Evaluate(X_train, X_test, y_train, y_test, alpha, K_train_train, gamma, C):
     acc, auroc, auprc = evaluate_test(
         y_test,
-        Test_evlauation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)
+        Test_evaluation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)
     )
 
     print(f"Test Accuracy : {acc:.4f}")
@@ -389,7 +390,7 @@ def Evaluate(X_train, X_test, y_train, y_test, alpha, K_train_train, gamma, C):
     if set(np.unique(y_true)) == {-1, 1}:
         y_true = (y_true == 1).astype(int)
 
-    scores = np.asarray(Test_evlauation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)).ravel()
+    scores = np.asarray(Test_evaluation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)).ravel()
 
     # ROC 계산
     fpr, tpr, thresholds = roc_curve(y_true, scores)
@@ -416,7 +417,7 @@ def Evaluate_Overfitting(acc_train, acc_test, auroc_train, auroc_test, auprc_tra
     return gap_acc, gap_auroc, gap_auprc
 
 def Hinge_Loss(X_train, X_test, y_train, y_test, alpha, K_train_train, scores_train, gamma, C):
-    scores_test = Test_evlauation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)
+    scores_test = Test_evaluation(X_train, X_test, y_train, alpha, K_train_train, gamma, C)
 
     loss_train = np.maximum(0, 1 - (y_train * scores_train))
     loss_test = np.maximum(0, 1 - (y_test * scores_test))
